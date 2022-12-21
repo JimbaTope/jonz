@@ -1,0 +1,64 @@
+import pandas as pd
+import requests
+import json
+
+# Set your API key and secret
+API_KEY = 'your-api-key'
+API_SECRET = 'your-api-secret'
+
+# Set the URL for the API endpoint
+API_URL = 'https://api.your-trading-platform.com/v1/'
+
+# Set the headers for the request
+headers = {
+  'Content-Type': 'application/json',
+  'X-API-Key': API_KEY,
+  'X-API-Secret': API_SECRET
+}
+
+def get_balance():
+  # Set the endpoint for the balance API
+  endpoint = 'balance'
+  # Send a GET request to the balance API
+  response = requests.get(API_URL + endpoint, headers=headers)
+  # Return the balance data
+  return response.json()
+
+def get_candles(symbol, interval, limit=100):
+  # Set the endpoint for the candles API
+  endpoint = f'candles?symbol={symbol}&interval={interval}&limit={limit}'
+  # Send a GET request to the candles API
+  response = requests.get(API_URL + endpoint, headers=headers)
+  # Return the candle data as a Pandas DataFrame
+  return pd.DataFrame(response.json())
+
+def place_order(symbol, side, qty, price):
+  # Set the endpoint for the orders API
+  endpoint = 'orders'
+  # Set the payload for the request
+  payload = {
+    'symbol': symbol,
+    'side': side,
+    'qty': qty,
+    'price': price
+  }
+  # Send a POST request to the orders API
+  response = requests.post(API_URL + endpoint, headers=headers, json=payload)
+  # Return the order data
+  return response.json()
+
+def moving_average_crossover_strategy(symbol, interval):
+  # Get the latest candle data
+  candles = get_candles(symbol, interval, limit=200)
+  # Calculate the moving averages
+  candles['ma50'] = candles['close'].rolling(50).mean()
+  candles['ma200'] = candles['close'].rolling(200).mean()
+  # Check if the 50-day moving average has crossed above the 200-day moving average
+  if candles['ma50'].iloc[-2] < candles['ma200'].iloc[-2] and candles['ma50'].iloc[-1] > candles['ma200'].iloc[-1]:
+    # If it has, place a buy order
+    qty = get_balance()['BTC']['available']
+    price = candles['close'].iloc[-1]
+    return place_order(symbol, 'buy', qty, price)
+  # Check if the 50-day moving average has crossed below the 200-day moving average
+  elif candles['ma50'].iloc[-2] > candles['ma200'].iloc[-2] and candles['ma50'].iloc[-1] < candles['ma200'].iloc[-1]:
+    # If it has, place a sell
